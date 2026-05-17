@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from .audio import FRAME_BYTES, FRAMERATE, pcm_duration
+from .audio import FRAME_BYTES, FRAMERATE, pcm_duration, pcm_to_wav_bytes
 
 
 def assemble_group(
@@ -43,7 +43,10 @@ def assemble_group(
     full_pcm = b"".join(parts)
     return {
         "idx": idx,
-        "audio_pcm": full_pcm,
+        "audio": {
+            "bytes": pcm_to_wav_bytes(full_pcm),
+            "path": f"combined{idx:04d}.wav",
+        },
         "duration": float(pcm_duration(full_pcm)),
         "words": words_out,
     }

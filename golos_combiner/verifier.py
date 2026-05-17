@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pyarrow.parquet as pq
 
-from .audio import pcm_duration
+from .audio import wav_duration
 
 
 @dataclass
@@ -28,13 +28,16 @@ def run(cfg: VerifyConfig) -> int:
 
     row0 = pf.read_row_group(0).slice(0, 1).to_pylist()[0]
     print()
-    print(f'row idx={row0["idx"]}  duration={row0["duration"]:.3f}s')
-    print(f'  audio_pcm bytes: {len(row0["audio_pcm"])}')
-
-    pcm_dur = pcm_duration(row0["audio_pcm"])
     print(
-        f'  pcm-decoded duration: {pcm_dur:.3f}s  '
-        f'(delta from duration field: {abs(pcm_dur - row0["duration"]) * 1000:.2f}ms)'
+        f'row idx={row0["idx"]}  duration={row0["duration"]:.3f}s  '
+        f'path={row0["audio"]["path"]}'
+    )
+    print(f'  audio wav bytes: {len(row0["audio"]["bytes"])}')
+
+    wav_dur = wav_duration(row0["audio"]["bytes"])
+    print(
+        f'  wav-decoded duration: {wav_dur:.3f}s  '
+        f'(delta from duration field: {abs(wav_dur - row0["duration"]) * 1000:.2f}ms)'
     )
     print(f'  words count: {len(row0["words"])}')
     print(f'  first 3 words: {row0["words"][:3]}')

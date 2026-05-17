@@ -23,8 +23,10 @@ dataset_info:
   features:
     - name: idx
       dtype: int32
-    - name: audio_pcm
-      dtype: binary
+    - name: audio
+      dtype:
+        audio:
+          sampling_rate: 16000
     - name: duration
       dtype: float32
     - name: words
@@ -73,12 +75,12 @@ Any shard with the same schema works — pass it via `--in-parquet`.
 
 ## Schema
 
-| field       | type                                         | description                                                  |
-|-------------|----------------------------------------------|--------------------------------------------------------------|
-| `idx`       | `int32`                                      | 1-based row index                                            |
-| `audio_pcm` | `binary`                                     | raw 16 kHz mono s16le PCM samples, spliced with randomized inter-clip silences. Optionally `speechnorm`- and/or `loudnorm`-filtered when those flags are passed at build time. No container header — decode with e.g. `np.frombuffer(b, dtype='<i2')`. |
-| `duration`  | `float32`                                    | combined clip duration in seconds                            |
-| `words`     | `list<{text: string, start: f32, end: f32}>` | word timings shifted onto the combined timeline              |
+| field      | type                                         | description                                                  |
+|------------|----------------------------------------------|--------------------------------------------------------------|
+| `idx`      | `int32`                                      | 1-based row index, matches `audio.path`'s number             |
+| `audio`    | `struct<bytes: binary, path: string>`        | `bytes` is a full RIFF/WAVE file (16 kHz mono s16le, with header) holding the spliced clip — optionally `speechnorm`- and/or `loudnorm`-filtered when those flags are passed at build time. `path` is a synthetic label `combined{NNNN}.wav` (no file on disk). The parquet schema metadata declares this column as a Hugging Face `Audio` feature so the HF dataset viewer renders it as a playback widget. |
+| `duration` | `float32`                                    | combined clip duration in seconds                            |
+| `words`    | `list<{text: string, start: f32, end: f32}>` | word timings shifted onto the combined timeline              |
 
 ## How it is built
 
@@ -94,7 +96,8 @@ Any shard with the same schema works — pass it via `--in-parquet`.
    using a deterministic seed (`--seed`, default `42`).
 5. Shift each clip's word `start`/`end` onto the combined timeline by the
    running offset accumulated from prior clips and silences.
-6. Write the spliced PCM as the `audio_pcm` column of one parquet row.
+6. Wrap the spliced PCM in a WAV header and write it to the `audio.bytes`
+   field of one parquet row (with `audio.path = "combined{NNNN}.wav"`).
 
 ## Layout
 
@@ -103,7 +106,7 @@ golos_mfa_punctuation_long/
 ├── README.md                       # this file (HF dataset card)
 ├── golos_combiner/                 # library
 │   ├── __init__.py
-│   ├── audio.py                    # ffmpeg/Opus → PCM decoder + duration helper
+│   ├── audio.py                    # ffmpeg/Opus → PCM, PCM ↔ WAV, duration helpers
 │   ├── schema.py                   # pyarrow schema
 │   ├── assembly.py                 # per-group splice + timestamp shift
 │   ├── builder.py                  # end-to-end build pipeline (BuildConfig + run)
@@ -201,7 +204,6 @@ verify(VerifyConfig(parquet=Path("data/golos_mfa_punctuation_long_00000.parquet"
 ### Load with `datasets`
 
 ```python
-import numpy as np
 from datasets import load_dataset
 
 ds = load_dataset(
@@ -210,9 +212,13 @@ ds = load_dataset(
     split="train",
 )
 row = ds[0]
-samples = np.frombuffer(row["audio_pcm"], dtype="<i2")  # 16 kHz mono s16le
-print(samples.shape, row["duration"], row["words"][:3])
+audio = row["audio"]   # auto-decoded by the Audio feature
+print(audio["array"].shape, audio["sampling_rate"], row["duration"], row["words"][:3])
 ```
+
+The schema metadata embedded in the parquet declares `audio` as a Hugging
+Face `Audio` feature, so `load_dataset` decodes the WAV bytes for you into
+a NumPy array and exposes the sampling rate.
 
 ## Licensing
 

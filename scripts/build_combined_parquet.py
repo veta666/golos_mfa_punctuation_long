@@ -29,8 +29,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description=(
             "Group every N consecutive rows of a Golos parquet, splice them "
-            "into one PCM blob with randomized inter-clip silences, and shift "
-            "word timestamps onto the combined timeline."
+            "into one WAV-wrapped clip with randomized inter-clip silences, "
+            "shift word timestamps onto the combined timeline, and write the "
+            "result as an HF-compatible `audio` column."
         )
     )
     ap.add_argument(

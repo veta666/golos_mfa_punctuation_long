@@ -1,8 +1,10 @@
-"""Audio constants and PCM helpers used across the combiner pipeline."""
+"""Audio constants and PCM/WAV helpers used across the combiner pipeline."""
 
 from __future__ import annotations
 
+import io
 import subprocess
+import wave
 
 FRAMERATE = 16000
 SAMPWIDTH = 2
@@ -39,6 +41,23 @@ def decode_opus_to_pcm(
     cmd += ["-f", "s16le", "-ar", str(FRAMERATE), "-ac", str(NCHANNELS), "pipe:1"]
     proc = subprocess.run(cmd, input=opus_bytes, check=True, capture_output=True)
     return proc.stdout
+
+
+def pcm_to_wav_bytes(pcm: bytes) -> bytes:
+    """Wrap raw s16le mono PCM in a RIFF/WAVE container."""
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(NCHANNELS)
+        w.setsampwidth(SAMPWIDTH)
+        w.setframerate(FRAMERATE)
+        w.writeframes(pcm)
+    return buf.getvalue()
+
+
+def wav_duration(wav_bytes: bytes) -> float:
+    """Return the duration in seconds of a RIFF/WAVE blob (header included)."""
+    with wave.open(io.BytesIO(wav_bytes), "rb") as w:
+        return w.getnframes() / w.getframerate()
 
 
 def pcm_duration(pcm: bytes) -> float:

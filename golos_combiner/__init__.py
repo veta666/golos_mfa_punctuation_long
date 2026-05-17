@@ -8,6 +8,8 @@ from .audio import (
     SAMPWIDTH,
     decode_opus_to_pcm,
     pcm_duration,
+    pcm_to_wav_bytes,
+    wav_duration,
 )
 from .builder import BuildConfig, run as build
 from .schema import build_schema
@@ -19,7 +21,9 @@ __all__ = [
     "NCHANNELS",
     "FRAME_BYTES",
     "decode_opus_to_pcm",
+    "pcm_to_wav_bytes",
     "pcm_duration",
+    "wav_duration",
     "build_schema",
     "assemble_group",
     "BuildConfig",
